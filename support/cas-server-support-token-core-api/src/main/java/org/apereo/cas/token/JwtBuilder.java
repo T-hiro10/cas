@@ -4,15 +4,18 @@ import org.apereo.cas.services.RegisteredService;
 import org.apereo.cas.services.RegisteredServiceAccessStrategyUtils;
 import org.apereo.cas.services.RegisteredServiceCipherExecutor;
 import org.apereo.cas.services.ServicesManager;
+import org.apereo.cas.util.CollectionUtils;
 import org.apereo.cas.util.crypto.CipherExecutor;
 
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.PlainHeader;
 import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.JWTParser;
 import com.nimbusds.jwt.PlainJWT;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.hjson.JsonValue;
@@ -36,8 +39,11 @@ import java.util.Optional;
 @Getter
 public class JwtBuilder {
     private final String casSeverPrefix;
+
     private final CipherExecutor<Serializable, String> defaultTokenCipherExecutor;
+
     private final ServicesManager servicesManager;
+
     private final RegisteredServiceCipherExecutor registeredServiceCipherExecutor;
 
     /**
@@ -48,10 +54,15 @@ public class JwtBuilder {
      */
     public static JWTClaimsSet parse(final String jwt) {
         try {
-            return JWTClaimsSet.parse(jwt);
+            return JWTParser.parse(jwt).getJWTClaimsSet();
         } catch (final Exception e) {
-            LOGGER.error(e.getMessage(), e);
-            throw new IllegalArgumentException("Unable to parse JWT");
+            LOGGER.trace("Unable to parse [{}] JWT; trying JWT claim set...", jwt);
+            try {
+                return JWTClaimsSet.parse(jwt);
+            } catch (final Exception ex) {
+                LOGGER.error(e.getMessage(), ex);
+                throw new IllegalArgumentException("Unable to parse JWT");
+            }
         }
     }
 
@@ -62,9 +73,10 @@ public class JwtBuilder {
      * @param jwtJson the jwt json
      * @return the string
      */
+    @SneakyThrows
     public JWTClaimsSet unpack(final Optional<RegisteredService> service, final String jwtJson) {
         service.ifPresent(svc -> {
-            LOGGER.trace("Located service [{}] in service registry for [{}]", svc);
+            LOGGER.trace("Located service [{}] in service registry", svc);
             RegisteredServiceAccessStrategyUtils.ensureServiceAccessIsAllowed(svc);
         });
 
@@ -100,7 +112,13 @@ public class JwtBuilder {
             .issueTime(payload.getIssueDate())
             .subject(payload.getSubject());
 
-        payload.getAttributes().forEach(claims::claim);
+        payload.getAttributes().forEach((k, v) -> {
+            if (v.size() == 1) {
+                claims.claim(k, CollectionUtils.firstElement(v).get());
+            } else {
+                claims.claim(k, v);
+            }
+        });
         claims.expirationTime(payload.getValidUntilDate());
 
         val claimsSet = claims.build();
@@ -111,9 +129,9 @@ public class JwtBuilder {
             LOGGER.debug("Generated JWT [{}]", JsonValue.readJSON(jwtJson).toString(Stringify.FORMATTED));
         }
         LOGGER.trace("Locating service [{}] in service registry", serviceAudience);
-        val registeredService = payload.getRegisteredService() == null
+        val registeredService = payload.getRegisteredService().isEmpty()
             ? locateRegisteredService(serviceAudience)
-            : payload.getRegisteredService();
+            : payload.getRegisteredService().get();
         RegisteredServiceAccessStrategyUtils.ensureServiceAccessIsAllowed(registeredService);
 
         LOGGER.trace("Locating service specific signing and encryption keys for [{}] in service registry", serviceAudience);
@@ -152,11 +170,17 @@ public class JwtBuilder {
     @Getter
     public static class JwtRequest {
         private final String jwtId;
+
         private final String serviceAudience;
+
         private final Date issueDate;
+
         private final String subject;
+
         private final Date validUntilDate;
-        private final RegisteredService registeredService;
+
+        @Builder.Default
+        private Optional<RegisteredService> registeredService = Optional.empty();
 
         @Builder.Default
         private final Map<String, List<Object>> attributes = new LinkedHashMap<>();

@@ -2,6 +2,7 @@ package org.apereo.cas.support.saml.idp.metadata;
 
 import org.apereo.cas.config.CasCoreHttpConfiguration;
 import org.apereo.cas.config.CasCoreServicesConfiguration;
+import org.apereo.cas.config.CasCoreUtilConfiguration;
 import org.apereo.cas.config.CasCoreWebConfiguration;
 import org.apereo.cas.config.CasCouchDbCoreConfiguration;
 import org.apereo.cas.config.CoreSamlConfiguration;
@@ -15,7 +16,9 @@ import org.apereo.cas.couchdb.core.CouchDbConnectorFactory;
 import org.apereo.cas.couchdb.saml.SamlIdPMetadataCouchDbRepository;
 import org.apereo.cas.support.saml.idp.metadata.generator.SamlIdPMetadataGenerator;
 import org.apereo.cas.support.saml.idp.metadata.locator.SamlIdPMetadataLocator;
+import org.apereo.cas.support.saml.services.SamlRegisteredService;
 
+import lombok.val;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -23,9 +26,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.aop.AopAutoConfiguration;
+import org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cloud.autoconfigure.RefreshAutoConfiguration;
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -42,6 +48,8 @@ import static org.junit.jupiter.api.Assertions.*;
     CasCouchDbCoreConfiguration.class,
     SamlIdPMetadataConfiguration.class,
     RefreshAutoConfiguration.class,
+    CasCoreUtilConfiguration.class,
+    MailSenderAutoConfiguration.class,
     AopAutoConfiguration.class,
     CasCoreServicesConfiguration.class,
     CasCoreHttpConfiguration.class,
@@ -87,11 +95,26 @@ public class CouchDbSamlIdPMetadataGeneratorTests {
 
     @Test
     public void verifyOperation() {
-        this.samlIdPMetadataGenerator.generate();
-        assertNotNull(samlIdPMetadataLocator.getMetadata());
-        assertNotNull(samlIdPMetadataLocator.getEncryptionCertificate());
-        assertNotNull(samlIdPMetadataLocator.getEncryptionKey());
-        assertNotNull(samlIdPMetadataLocator.getSigningCertificate());
-        assertNotNull(samlIdPMetadataLocator.getSigningKey());
+        this.samlIdPMetadataGenerator.generate(Optional.empty());
+        assertNotNull(samlIdPMetadataLocator.resolveMetadata(Optional.empty()));
+        assertNotNull(samlIdPMetadataLocator.getEncryptionCertificate(Optional.empty()));
+        assertNotNull(samlIdPMetadataLocator.resolveEncryptionKey(Optional.empty()));
+        assertNotNull(samlIdPMetadataLocator.resolveSigningCertificate(Optional.empty()));
+        assertNotNull(samlIdPMetadataLocator.resolveSigningKey(Optional.empty()));
+    }
+
+    @Test
+    public void verifyService() {
+        val service = new SamlRegisteredService();
+        service.setName("TestShib");
+        service.setId(1000);
+        val registeredService = Optional.of(service);
+
+        samlIdPMetadataGenerator.generate(registeredService);
+        assertNotNull(samlIdPMetadataLocator.resolveMetadata(registeredService));
+        assertNotNull(samlIdPMetadataLocator.getEncryptionCertificate(registeredService));
+        assertNotNull(samlIdPMetadataLocator.resolveEncryptionKey(registeredService));
+        assertNotNull(samlIdPMetadataLocator.resolveSigningCertificate(registeredService));
+        assertNotNull(samlIdPMetadataLocator.resolveSigningKey(registeredService));
     }
 }

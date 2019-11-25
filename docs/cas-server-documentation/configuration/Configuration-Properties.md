@@ -1051,7 +1051,7 @@ Retrieve attributes from a REST endpoint. RESTful settings for this feature are 
 # cas.authn.attributeRepository.rest[0].caseInsensitive=false
 ```
 
-The authenticating user id is passed in form of a request parameter under `username.` The response is expected
+The authenticating user id is passed in form of a request parameter under `username`. The response is expected
 to be a JSON map as such:
 
 ```json
@@ -3515,7 +3515,8 @@ The signing and encryption keys [are both JWKs](Configuration-Properties-Common.
 
 Allows CAS to act as an OAuth2 provider. Here you can control how long various tokens issued by CAS should last, etc.
 
-Signing & encryption settings for this feature are available [here](Configuration-Properties-Common.html#signing--encryption) under the configuration key `cas.authn.oauth`.
+Signing & encryption settings for this feature are available [here](Configuration-Properties-Common.html#signing--encryption) 
+under the configuration key `cas.authn.oauth`.
 
 To learn more about this topic, [please review this guide](../installation/OAuth-OpenId-Authentication.html).
 
@@ -3563,11 +3564,14 @@ To learn more about this topic, [please review this guide](../installation/OAuth
 ### OAuth2 JWT Access Tokens
 
 ```properties
+# cas.authn.oauth.accessToken.createAsJwt=false
 # cas.authn.oauth.accessToken.crypto.encryptionEnabled=true
 # cas.authn.oauth.accessToken.crypto.signingEnabled=true
 ```
 
-The signing key and the encryption key [are both JWKs](Configuration-Properties-Common.html#signing--encryption) of size `512` and `256`. Signing & encryption settings for this feature are available [here](Configuration-Properties-Common.html#signing--encryption) under the configuration key `cas.authn.oauth.accessToken`.
+The signing key and the encryption key [are both JWKs](Configuration-Properties-Common.html#signing--encryption) of size `512` and `256`.
+Signing & encryption settings for this feature are available [here](Configuration-Properties-Common.html#signing--encryption) 
+under the configuration key `cas.authn.oauth.accessToken`.
 
 ### OAuth2 UMA
 
@@ -4069,6 +4073,7 @@ Works with git repository to fetch and manage service registry definitions.
 # cas.serviceRegistry.git.repositoryUrl=https://github.com/repository
 # cas.serviceRegistry.git.branchesToClone=master
 # cas.serviceRegistry.git.activeBranch=master
+# cas.serviceRegistry.git.signCommits=false
 # cas.serviceRegistry.git.username=
 # cas.serviceRegistry.git.password=
 # cas.serviceRegistry.git.cloneDirectory=file:/tmp/cas-service-registry

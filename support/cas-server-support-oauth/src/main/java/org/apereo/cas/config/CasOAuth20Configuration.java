@@ -7,6 +7,7 @@ import org.apereo.cas.audit.AuditableExecution;
 import org.apereo.cas.authentication.AuthenticationSystemSupport;
 import org.apereo.cas.authentication.principal.PrincipalFactory;
 import org.apereo.cas.authentication.principal.PrincipalFactoryUtils;
+import org.apereo.cas.authentication.principal.PrincipalResolver;
 import org.apereo.cas.authentication.principal.ServiceFactory;
 import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.integration.pac4j.DistributedJ2ESessionStore;
@@ -99,6 +100,7 @@ import org.apereo.cas.ticket.registry.TicketRegistry;
 import org.apereo.cas.token.JwtBuilder;
 import org.apereo.cas.util.CollectionUtils;
 import org.apereo.cas.util.DefaultUniqueTicketIdGenerator;
+import org.apereo.cas.util.cipher.CipherExecutorUtils;
 import org.apereo.cas.util.crypto.CipherExecutor;
 import org.apereo.cas.util.function.FunctionUtils;
 import org.apereo.cas.web.cookie.CasCookieBuilder;
@@ -157,6 +159,10 @@ public class CasOAuth20Configuration {
     private ResourceLoader resourceLoader;
 
     @Autowired
+    @Qualifier("defaultPrincipalResolver")
+    private ObjectProvider<PrincipalResolver> defaultPrincipalResolver;
+
+    @Autowired
     @Qualifier("registeredServiceAccessStrategyEnforcer")
     private ObjectProvider<AuditableExecution> registeredServiceAccessStrategyEnforcer;
 
@@ -197,7 +203,7 @@ public class CasOAuth20Configuration {
     @ConditionalOnMissingBean(name = "accessTokenResponseGenerator")
     @Bean
     public OAuth20AccessTokenResponseGenerator accessTokenResponseGenerator() {
-        return new OAuth20DefaultAccessTokenResponseGenerator(accessTokenJwtBuilder());
+        return new OAuth20DefaultAccessTokenResponseGenerator(accessTokenJwtBuilder(), casProperties);
     }
 
     @ConditionalOnMissingBean(name = "accessTokenJwtBuilder")
@@ -314,7 +320,9 @@ public class CasOAuth20Configuration {
         return new OAuth20ClientIdClientSecretAuthenticator(servicesManager.getObject(),
             webApplicationServiceFactory.getObject(),
             registeredServiceAccessStrategyEnforcer.getObject(),
-            oauthRegisteredServiceCipherExecutor(), ticketRegistry.getIfAvailable());
+            oauthRegisteredServiceCipherExecutor(),
+            ticketRegistry.getObject(),
+            defaultPrincipalResolver.getObject());
     }
 
     @ConditionalOnMissingBean(name = "oAuthProofKeyCodeExchangeAuthenticator")
@@ -324,7 +332,8 @@ public class CasOAuth20Configuration {
             webApplicationServiceFactory.getObject(),
             registeredServiceAccessStrategyEnforcer.getObject(),
             ticketRegistry.getObject(),
-            oauthRegisteredServiceCipherExecutor());
+            oauthRegisteredServiceCipherExecutor(),
+            defaultPrincipalResolver.getObject());
     }
 
     @ConditionalOnMissingBean(name = "oAuthUserAuthenticator")
@@ -650,7 +659,7 @@ public class CasOAuth20Configuration {
     @RefreshScope
     public OAuth20AuthorizationResponseBuilder oauthTokenResponseBuilder() {
         return new OAuth20TokenAuthorizationResponseBuilder(oauthTokenGenerator(), accessTokenExpirationPolicy(),
-            servicesManager.getObject(), accessTokenJwtBuilder());
+            servicesManager.getObject(), accessTokenJwtBuilder(), casProperties);
     }
 
     @ConditionalOnMissingBean(name = "oauthAuthorizationCodeResponseBuilder")
@@ -761,13 +770,7 @@ public class CasOAuth20Configuration {
             .get();
 
         if (enabled) {
-            return new OAuth20JwtAccessTokenCipherExecutor(crypto.getEncryption().getKey(),
-                crypto.getSigning().getKey(),
-                crypto.getAlg(),
-                crypto.isEncryptionEnabled(),
-                crypto.isSigningEnabled(),
-                crypto.getSigning().getKeySize(),
-                crypto.getEncryption().getKeySize());
+            return CipherExecutorUtils.newStringCipherExecutor(crypto, OAuth20JwtAccessTokenCipherExecutor.class);
         }
         LOGGER.info("OAuth access token encryption/signing is turned off for JWTs, if/when needed. This "
             + "MAY NOT be safe in a production environment.");
@@ -801,13 +804,7 @@ public class CasOAuth20Configuration {
             .get();
 
         if (enabled) {
-            return new OAuth20RegisteredServiceCipherExecutor(crypto.getEncryption().getKey(),
-                crypto.getSigning().getKey(),
-                crypto.getAlg(),
-                crypto.isEncryptionEnabled(),
-                crypto.isSigningEnabled(),
-                crypto.getSigning().getKeySize(),
-                crypto.getEncryption().getKeySize());
+            return CipherExecutorUtils.newStringCipherExecutor(crypto, OAuth20RegisteredServiceCipherExecutor.class);
         }
         LOGGER.info("Relying party secret encryption/signing is turned off for OAuth/OIDC services. This "
             + "MAY NOT be safe in a production environment. Consider using other choices to handle encryption, "

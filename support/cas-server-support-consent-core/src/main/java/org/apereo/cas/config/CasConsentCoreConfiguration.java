@@ -12,6 +12,7 @@ import org.apereo.cas.consent.DefaultConsentEngine;
 import org.apereo.cas.consent.GroovyConsentRepository;
 import org.apereo.cas.consent.InMemoryConsentRepository;
 import org.apereo.cas.consent.JsonConsentRepository;
+import org.apereo.cas.util.cipher.CipherExecutorUtils;
 import org.apereo.cas.util.crypto.CipherExecutor;
 
 import lombok.extern.slf4j.Slf4j;
@@ -64,11 +65,7 @@ public class CasConsentCoreConfiguration {
         val consent = casProperties.getConsent();
         val crypto = consent.getCrypto();
         if (crypto.isEnabled()) {
-            return new AttributeReleaseConsentCipherExecutor(crypto.getEncryption().getKey(),
-                crypto.getSigning().getKey(),
-                crypto.getAlg(),
-                crypto.getSigning().getKeySize(),
-                crypto.getEncryption().getKeySize());
+            return CipherExecutorUtils.newStringCipherExecutor(crypto, AttributeReleaseConsentCipherExecutor.class);
         }
         LOGGER.debug("Consent attributes stored by CAS are not signed/encrypted.");
         return CipherExecutor.noOp();
@@ -104,8 +101,8 @@ public class CasConsentCoreConfiguration {
     @Bean
     public AuditTrailRecordResolutionPlanConfigurer casConsentAuditTrailRecordResolutionPlanConfigurer() {
         return plan -> {
-            plan.registerAuditActionResolver("SAVE_CONSENT_ACTION_RESOLVER", authenticationActionResolver.getIfAvailable());
-            plan.registerAuditResourceResolver("SAVE_CONSENT_RESOURCE_RESOLVER", returnValueResourceResolver.getIfAvailable());
+            plan.registerAuditActionResolver("SAVE_CONSENT_ACTION_RESOLVER", authenticationActionResolver.getObject());
+            plan.registerAuditResourceResolver("SAVE_CONSENT_RESOURCE_RESOLVER", returnValueResourceResolver.getObject());
         };
     }
 

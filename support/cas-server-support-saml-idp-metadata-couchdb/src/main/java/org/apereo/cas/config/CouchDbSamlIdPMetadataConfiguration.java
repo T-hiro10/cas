@@ -10,6 +10,7 @@ import org.apereo.cas.support.saml.idp.metadata.generator.SamlIdPMetadataGenerat
 import org.apereo.cas.support.saml.idp.metadata.generator.SamlIdPMetadataGeneratorConfigurationContext;
 import org.apereo.cas.support.saml.idp.metadata.locator.SamlIdPMetadataLocator;
 import org.apereo.cas.support.saml.idp.metadata.writer.SamlIdPCertificateAndKeyWriter;
+import org.apereo.cas.util.cipher.CipherExecutorUtils;
 import org.apereo.cas.util.crypto.CipherExecutor;
 
 import lombok.SneakyThrows;
@@ -27,6 +28,8 @@ import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ResourceLoader;
+
+import java.util.Optional;
 
 /**
  * This is {@link CouchDbSamlIdPMetadataConfiguration}.
@@ -89,12 +92,7 @@ public class CouchDbSamlIdPMetadataConfiguration {
         val crypto = idp.getMetadata().getCouchDb().getCrypto();
 
         if (crypto.isEnabled()) {
-            return new CouchDbSamlIdPMetadataCipherExecutor(
-                crypto.getEncryption().getKey(),
-                crypto.getSigning().getKey(),
-                crypto.getAlg(),
-                crypto.getSigning().getKeySize(),
-                crypto.getEncryption().getKeySize());
+            return CipherExecutorUtils.newStringCipherExecutor(crypto, CouchDbSamlIdPMetadataCipherExecutor.class);
         }
         LOGGER.info("CouchDb SAML IdP metadata encryption/signing is turned off and "
             + "MAY NOT be safe in a production environment. "
@@ -103,7 +101,7 @@ public class CouchDbSamlIdPMetadataConfiguration {
     }
 
     @ConditionalOnMissingBean(name = "couchDbSamlIdPMetadataGenerator")
-    @Bean(initMethod = "generate")
+    @Bean
     public SamlIdPMetadataGenerator samlIdPMetadataGenerator() {
         val idp = casProperties.getAuthn().getSamlIdp();
 
@@ -117,7 +115,9 @@ public class CouchDbSamlIdPMetadataConfiguration {
             .metadataCipherExecutor(couchDbSamlIdPMetadataCipherExecutor())
             .build();
 
-        return new CouchDbSamlIdPMetadataGenerator(context, samlIdPMetadataRepository.getObject());
+        val generator = new CouchDbSamlIdPMetadataGenerator(context, samlIdPMetadataRepository.getObject());
+        generator.generate(Optional.empty());
+        return generator;
     }
 
     @ConditionalOnMissingBean(name = "couchDbSamlIdPMetadataLocator")

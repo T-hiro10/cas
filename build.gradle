@@ -80,24 +80,18 @@ apply from: rootProject.file("gradle/overrides.gradle")
 apply from: rootProject.file("gradle/dependencies.gradle")
 apply plugin: "com.github.ben-manes.versions"
 
-if (project.ext.continuousIntegrationBuild) {
-    apply plugin: "com.gradle.build-scan"
-}
-
 if (!Boolean.getBoolean("skipSonarqube")) {
     apply plugin: "org.sonarqube"
 }
 
-if (rootProject.continuousIntegrationBuild) {
-    apply plugin: "build-time-tracker"
-    buildtimetracker {
-        reporters {
-            summary {
-                ordered false
-                threshold 50
-                barstyle "unicode"
-                shortenTaskNames false
-            }
+apply plugin: "build-time-tracker"
+buildtimetracker {
+    reporters {
+        summary {
+            ordered false
+            threshold 50
+            barstyle "unicode"
+            shortenTaskNames false
         }
     }
 }
@@ -425,7 +419,7 @@ subprojects {
 
     [compileTestJava, compileJava].each {
         it.options.fork = false
-        it.options.incremental = false
+        it.options.incremental = true
 
         def casCompilerArgs = ["-parameters"]
 
@@ -506,6 +500,7 @@ subprojects {
                 xml.enabled = true
                 html.enabled = false
             }
+            it.pluginClasspath = project.configurations.spotbugsPlugins
             it.finalizedBy outputSpotbugsReports
         }
     }
@@ -577,7 +572,7 @@ licenseReport {
 }
 checkLicense.finalizedBy outputDependenciesWithoutLicense
 
-task javadoc(type: Javadoc, description: "Aggregate all Javadocs into a single directory", overwrite: true) {
+tasks.withType(Javadoc) {
     source subprojects.collect { project -> project.sourceSets.main.allJava }
     destinationDir = new File(buildDir, "javadoc")
     classpath = files(subprojects.collect { project -> project.sourceSets.main.compileClasspath })
@@ -618,7 +613,7 @@ task jacocoMerge(type: JacocoMerge) {
     }
 }
 
-task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
+task jacocoRootReport(type: JacocoReport, group: "Coverage reports") {
     description = 'Generates an aggregate report from all subprojects'
 
     subprojects.each {

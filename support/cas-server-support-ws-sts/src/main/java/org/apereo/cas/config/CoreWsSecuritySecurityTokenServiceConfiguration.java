@@ -21,6 +21,7 @@ import org.apereo.cas.ticket.SecurityTokenTicketFactory;
 import org.apereo.cas.ticket.UniqueTicketIdGenerator;
 import org.apereo.cas.util.CollectionUtils;
 import org.apereo.cas.util.DefaultUniqueTicketIdGenerator;
+import org.apereo.cas.util.cipher.CipherExecutorUtils;
 import org.apereo.cas.util.crypto.CipherExecutor;
 import org.apereo.cas.ws.idp.WSFederationConstants;
 
@@ -400,8 +401,8 @@ public class CoreWsSecuritySecurityTokenServiceConfiguration {
     @Bean
     @RefreshScope
     public SecurityTokenServiceTokenFetcher securityTokenServiceTokenFetcher() {
-        return new SecurityTokenServiceTokenFetcher(servicesManager.getIfAvailable(),
-            wsFederationAuthenticationServiceSelectionStrategy.getIfAvailable(),
+        return new SecurityTokenServiceTokenFetcher(servicesManager.getObject(),
+            wsFederationAuthenticationServiceSelectionStrategy.getObject(),
             securityTokenServiceCredentialCipherExecutor(),
             securityTokenServiceClientBuilder());
     }
@@ -412,18 +413,14 @@ public class CoreWsSecuritySecurityTokenServiceConfiguration {
     public CipherExecutor securityTokenServiceCredentialCipherExecutor() {
         val wsfed = casProperties.getAuthn().getWsfedIdp().getSts();
         val crypto = wsfed.getCrypto();
-        return new SecurityTokenServiceCredentialCipherExecutor(crypto.getEncryption().getKey(),
-            crypto.getSigning().getKey(),
-            crypto.getAlg(),
-            crypto.getSigning().getKeySize(),
-            crypto.getEncryption().getKeySize());
+        return CipherExecutorUtils.newStringCipherExecutor(crypto, SecurityTokenServiceCredentialCipherExecutor.class);
     }
 
     @ConditionalOnMissingBean(name = "securityTokenTicketFactory")
     @Bean
     @RefreshScope
     public SecurityTokenTicketFactory securityTokenTicketFactory() {
-        return new DefaultSecurityTokenTicketFactory(securityTokenTicketIdGenerator(), grantingTicketExpirationPolicy.getIfAvailable());
+        return new DefaultSecurityTokenTicketFactory(securityTokenTicketIdGenerator(), grantingTicketExpirationPolicy.getObject());
     }
 
     @ConditionalOnMissingBean(name = "securityTokenTicketIdGenerator")

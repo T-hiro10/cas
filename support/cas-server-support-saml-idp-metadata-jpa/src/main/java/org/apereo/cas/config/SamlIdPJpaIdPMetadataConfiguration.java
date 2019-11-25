@@ -12,6 +12,7 @@ import org.apereo.cas.support.saml.idp.metadata.locator.SamlIdPMetadataLocator;
 import org.apereo.cas.support.saml.idp.metadata.writer.SamlIdPCertificateAndKeyWriter;
 import org.apereo.cas.support.saml.services.idp.metadata.SamlIdPMetadataDocument;
 import org.apereo.cas.util.CollectionUtils;
+import org.apereo.cas.util.cipher.CipherExecutorUtils;
 import org.apereo.cas.util.crypto.CipherExecutor;
 
 import lombok.SneakyThrows;
@@ -110,12 +111,7 @@ public class SamlIdPJpaIdPMetadataConfiguration {
         val crypto = idp.getMetadata().getJpa().getCrypto();
 
         if (crypto.isEnabled()) {
-            return new JpaSamlIdPMetadataCipherExecutor(
-                crypto.getEncryption().getKey(),
-                crypto.getSigning().getKey(),
-                crypto.getAlg(),
-                crypto.getSigning().getKeySize(),
-                crypto.getEncryption().getKeySize());
+            return CipherExecutorUtils.newStringCipherExecutor(crypto, JpaSamlIdPMetadataCipherExecutor.class);
         }
         LOGGER.info("JPA SAML IdP metadata encryption/signing is turned off and "
             + "MAY NOT be safe in a production environment. "
@@ -124,14 +120,14 @@ public class SamlIdPJpaIdPMetadataConfiguration {
     }
 
     @Autowired
-    @Bean(initMethod = "generate")
+    @Bean
     public SamlIdPMetadataGenerator samlIdPMetadataGenerator(@Qualifier("transactionManagerSamlMetadataIdP") final PlatformTransactionManager mgr) {
         val idp = casProperties.getAuthn().getSamlIdp();
         val transactionTemplate = new TransactionTemplate(mgr);
 
         val context = SamlIdPMetadataGeneratorConfigurationContext.builder()
             .samlIdPMetadataLocator(samlIdPMetadataLocator())
-            .samlIdPCertificateAndKeyWriter(samlSelfSignedCertificateWriter.getIfAvailable())
+            .samlIdPCertificateAndKeyWriter(samlSelfSignedCertificateWriter.getObject())
             .entityId(idp.getEntityId())
             .resourceLoader(resourceLoader)
             .casServerPrefix(casProperties.getServer().getPrefix())
